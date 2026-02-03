@@ -1,119 +1,121 @@
 import streamlit as st
 import pandas as pd
+import io
 import os
 import time
+from datetime import datetime
 
-# --- 1. CONFIGURACIÓN E INYECCIÓN DE ESTILO "GEXTIA FACTORY" ---
+# --- 1. ESTÉTICA "SaaS MODERN" (Basada en la imagen) ---
 st.set_page_config(page_title="Gextia Factory Pro", layout="wide")
 
 st.markdown("""
     <style>
-    /* Fondo general */
     [data-testid="stAppViewContainer"] { background-color: #F8F9FB; }
+    [data-testid="stSidebar"] { background-color: #1E2533 !important; color: white; }
     
-    /* Barra lateral Oscura */
-    [data-testid="stSidebar"] {
-        background-color: #1E2533 !important;
-        color: white;
-    }
-    
-    /* Estilo de Tarjetas (Cards) */
+    /* Estilo de Tarjetas */
     .product-card {
         background-color: white;
         border-radius: 12px;
         padding: 20px;
         border: 1px solid #EAECEF;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        margin-bottom: 20px;
-        height: 280px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+        margin-bottom: 10px;
+        min-height: 180px;
     }
+    .badge-ref { background-color: #F1F3F5; padding: 4px 8px; border-radius: 4px; font-size: 11px; color: #666; font-family: monospace; }
+    .product-title { font-weight: 600; font-size: 16px; margin-top: 10px; color: #1E2533; display: block; }
+    .product-sub { color: #888; font-size: 12px; margin-bottom: 10px; }
     
-    .badge-ref { background-color: #F1F3F5; padding: 4px 8px; border-radius: 4px; font-size: 11px; color: #666; }
-    .badge-color { background-color: #E7F0FF; padding: 4px 8px; border-radius: 4px; font-size: 11px; color: #0052CC; float: right; }
-    .product-title { font-weight: 600; font-size: 18px; margin-top: 10px; color: #1E2533; }
-    .product-sub { color: #888; font-size: 13px; }
-    .product-meta { font-size: 13px; margin-top: 5px; color: #444; }
-    
-    /* Botones estilo SaaS */
+    /* Botones SaaS */
     div.stButton > button {
-        width: 100%;
         border-radius: 8px !important;
-        background-color: #1E3A8A !important;
-        color: white !important;
-        border: none !important;
-        font-weight: 500;
-        transition: 0.3s;
+        background-color: #FFF !important;
+        color: #1E2533 !important;
+        border: 1px solid #EAECEF !important;
+        font-size: 12px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
-    div.stButton > button:hover { background-color: #111827 !important; }
+    div.stButton > button:hover { background-color: #1E2533 !important; color: white !important; }
+    
+    /* Tabs personalizadas */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; }
+    .stTabs [data-baseweb="tab"] { font-weight: 500; color: #666; }
+    .stTabs [aria-selected="true"] { color: #1E2533 !important; border-bottom-color: #1E2533 !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LOGICA DE ESTADO ---
-if 'mesa' not in st.session_state: st.session_state.mesa = []
+# --- 2. LÓGICA DE DATOS ORIGINAL ---
+if 'mesa' not in st.session_state: st.session_state.mesa = pd.DataFrame()
+if 'bom' not in st.session_state: st.session_state.bom = pd.DataFrame()
 
-# --- 3. BARRA LATERAL (Sidebar como la imagen) ---
+@st.cache_data
+def load_data(file):
+    if os.path.exists(file):
+        df = pd.read_excel(file, engine='openpyxl')
+        df.columns = [str(c).strip().capitalize() for c in df.columns]
+        return df
+    return None
+
+df_prendas = load_data('prendas.xlsx')
+df_comp = load_data('componentes.xlsx')
+
+# --- 3. BARRA LATERAL ---
 with st.sidebar:
-    st.markdown("<h2 style='color:white; font-size:24px;'>Gextia</h2><p style='color:#888; margin-top:-15px;'>Factory Pro</p>", unsafe_allow_html=True)
-    st.write(" ")
-    st.button("📋 Prendas") # Este sería el active
-    st.button("📂 Mesa de Trabajo")
-    st.button("📊 Bill of Materials")
-    st.button("⚙️ Componentes")
-    
-    st.markdown("<div style='position: fixed; bottom: 20px; width: 260px;'>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:white;'>Gextia</h2><p style='color:#888; margin-top:-15px;'>Factory Pro</p>", unsafe_allow_html=True)
     st.write("---")
-    st.button("📤 Subir Archivo")
-    if st.button("🗑️ Limpiar Todo"):
-        st.session_state.mesa = []
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# --- 4. CONTENIDO PRINCIPAL ---
-st.markdown("### Catálogo de Prendas")
-st.markdown("Selecciona prendas para agregar a la mesa de trabajo")
-
-# Buscador y Filtro
-c_search, c_filter = st.columns([3, 1])
-with c_search:
-    query = st.text_input("Buscar referencia...", label_visibility="collapsed", placeholder="🔍 Buscar...")
-with c_filter:
-    st.selectbox("Filtrar", ["Todas las categorías", "Camisas", "Pantalones", "Faldas"], label_visibility="collapsed")
-
-# Simulación de datos (Esto vendría de tu Excel)
-datos_prendas = [
-    {"ref": "CAM-001", "nombre": "Camisa Oxford", "cat": "Camisas", "talla": "M", "color": "Azul"},
-    {"ref": "CAM-002", "nombre": "Camisa Slim Fit", "cat": "Camisas", "talla": "L", "color": "Blanco"},
-    {"ref": "PAN-001", "nombre": "Pantalón Chino", "cat": "Pantalones", "talla": "32", "color": "Beige"},
-    {"ref": "PAN-002", "nombre": "Pantalón Cargo", "cat": "Pantalones", "talla": "34", "color": "Verde"},
-    {"ref": "VES-001", "nombre": "Vestido Verano", "cat": "Vestidos", "talla": "S", "color": "Floral"},
-    {"ref": "FAL-001", "nombre": "Falda Plisada", "cat": "Faldas", "talla": "M", "color": "Negro"},
-]
-
-# --- 5. GRID DE TARJETAS (CARDS) ---
-cols = st.columns(3) # Tres tarjetas por fila como en la imagen
-
-for i, p in enumerate(datos_prendas):
-    with cols[i % 3]:
-        st.markdown(f"""
-            <div class="product-card">
-                <div>
-                    <span class="badge-ref">{p['ref']}</span>
-                    <span class="badge-color">{p['color']}</span>
-                    <div class="product-title">{p['nombre']}</div>
-                    <div class="product-sub">{p['cat']}</div>
-                    <div class="product-meta">Talla: <b>{p['talla']}</b></div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        # El botón debe estar fuera del HTML pero visualmente pegado
-        if st.button(f"+ Agregar a Mesa", key=f"btn_{p['ref']}"):
-            st.session_state.mesa.append(p)
-            st.toast(f"{p['nombre']} añadido")
-
-# --- 6. FOOTER / STATUS ---
-if st.session_state.mesa:
-    st.success(f"Artículos en mesa: {len(st.session_state.mesa)}")
+    if not st.session_state.mesa.empty:
+        total_unidades = st.session_state.mesa['Cant. a fabricar'].sum()
+        st.metric("UNIDADES EN MESA", int(total_unidades))
     
+    st.write(" ")
+    if st.button("🗑️ LIMPIAR SESIÓN"):
+        st.session_state.mesa = pd.DataFrame()
+        st.session_state.bom = pd.DataFrame()
+        st.rerun()
+
+# --- 4. CUERPO PRINCIPAL (TABS) ---
+t1, t2, t3, t4 = st.tabs(["🛍️ CATÁLOGO / MESA", "🔗 ASIGNACIÓN", "📦 GEXTIA IMPORT", "🛒 COMPRAS"])
+
+# --- TAB 1: MESA DE CORTE (VISUAL DE TARJETAS) ---
+with t1:
+    if df_prendas is not None:
+        c_tit, c_search = st.columns([2, 2])
+        with c_tit: st.subheader("Catálogo de Prendas")
+        with c_search: 
+            search = st.text_input("Buscar referencia o nombre...", label_visibility="collapsed", placeholder="🔍 Buscar...")
+        
+        # Filtro de búsqueda
+        display_df = df_prendas.copy()
+        if search:
+            display_df = display_df[display_df['Referencia'].str.contains(search, case=False) | display_df['Nombre'].str.contains(search, case=False)]
+
+        # Grid de Tarjetas para el catálogo
+        st.write("### Disponibles en Maestro")
+        cols = st.columns(4)
+        for idx, row in display_df.head(20).iterrows(): # Limitamos a 20 para fluidez
+            with cols[idx % 4]:
+                st.markdown(f"""
+                    <div class="product-card">
+                        <span class="badge-ref">{row['Referencia']}</span>
+                        <div class="product-title">{row['Nombre']}</div>
+                        <div class="product-sub">{row['Color']} / Talla {row['Talla']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button(f"Añadir", key=f"add_{row['Ean']}"):
+                    nueva_fila = pd.DataFrame([row])
+                    nueva_fila['Sel'] = False
+                    nueva_fila['Cant. a fabricar'] = 0
+                    st.session_state.mesa = pd.concat([st.session_state.mesa, nueva_fila]).drop_duplicates(subset=['Ean'])
+                    st.toast(f"{row['Referencia']} en mesa")
+                    st.rerun()
+
+    if not st.session_state.mesa.empty:
+        st.write("---")
+        st.write("### 📋 Artículos en Mesa de Trabajo")
+        
+        # Acciones en bloque para la mesa
+        m1, m2, m3, m4 = st.columns([1, 1, 1, 1])
+        if m1.button("Seleccionar Todo"): st.session_state.mesa['Sel'] = True; st.rerun()
+        if m2.button("Deseleccionar"): st.session_state.mesa['Sel'] = False; st.rer
+            
