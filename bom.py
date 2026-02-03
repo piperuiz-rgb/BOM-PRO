@@ -6,7 +6,7 @@ import pickle
 import time
 from datetime import datetime
 
-# --- 1. CONFIGURACIÓN Y ESTÉTICA PROFESIONAL ---
+# --- 1. ESTÉTICA "ZARA" ---
 st.set_page_config(page_title="GEXTIA FACTORY PRO", layout="wide")
 
 st.markdown("""
@@ -28,21 +28,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. INICIALIZACIÓN DE ESTADOS ---
+# --- 2. ESTADOS ---
 if 'mesa' not in st.session_state: st.session_state.mesa = pd.DataFrame()
 if 'bom' not in st.session_state: st.session_state.bom = pd.DataFrame()
 if 'ultima_tanda' not in st.session_state: st.session_state.ultima_tanda = None
 
-# --- 3. FUNCIONES AUXILIARES ---
-def guardar_progreso():
-    return pickle.dumps({'mesa': st.session_state.mesa, 'bom': st.session_state.bom, 'ultima_tanda': st.session_state.ultima_tanda})
-
-def cargar_progreso(archivo_bytes):
-    datos = pickle.loads(archivo_bytes)
-    st.session_state.mesa = datos['mesa']
-    st.session_state.bom = datos['bom']
-    st.session_state.ultima_tanda = datos.get('ultima_tanda')
-
+# --- 3. DATOS ---
 @st.cache_data
 def load_data(file):
     if os.path.exists(file):
@@ -61,16 +52,10 @@ with st.sidebar:
     st.markdown("<h2 style='font-weight: 200; letter-spacing: 2px;'>GEXTIA PRO</h2>", unsafe_allow_html=True)
     if not st.session_state.mesa.empty:
         total = st.session_state.mesa['Cant. a fabricar'].astype(int).sum()
-        st.metric("PLANIFICADO", f"{total} pzs")
-        st.download_button("EXPORTAR BACKUP", data=guardar_progreso(), file_name=f"Backup_{datetime.now().strftime('%H%M')}.pkt", use_container_width=True)
+        st.metric("TOTAL PIEZAS", f"{total}")
     
     st.write("---")
-    archivo = st.file_uploader("RESTAURAR", type=["pkt"])
-    if archivo and st.button("CONFIRMAR LECTURA", use_container_width=True):
-        cargar_progreso(archivo.read())
-        st.rerun()
-    
-    if st.button("RESET SESIÓN", use_container_width=True):
+    if st.button("LIMPIAR TODO"):
         st.session_state.mesa = pd.DataFrame()
         st.session_state.bom = pd.DataFrame()
         st.rerun()
@@ -78,14 +63,14 @@ with st.sidebar:
 # --- 5. TABS ---
 t1, t2, t3, t4 = st.tabs(["MESA DE CORTE", "ASIGNACIÓN", "GEXTIA IMPORT", "COMPRAS"])
 
-# --- TAB 1: MESA DE CORTE ---
+# --- TAB 1: MESA DE CORTE (Versión Data Editor) ---
 with t1:
     if df_prendas is not None:
         c_sel, c_btn = st.columns([3, 1])
-        with c_sel: refs = st.multiselect("BUSCAR REFERENCIAS:", sorted(df_prendas['Referencia'].unique()))
+        with c_sel: refs = st.multiselect("BUSCAR:", sorted(df_prendas['Referencia'].unique()))
         with c_btn:
             st.write(" ")
-            if st.button("CARGAR", use_container_width=True):
+            if st.button("CARGAR A MESA", use_container_width=True):
                 nuevos = df_prendas[df_prendas['Referencia'].isin(refs)].copy()
                 nuevos['Sel'] = False
                 nuevos['Cant. a fabricar'] = 0
@@ -93,56 +78,41 @@ with t1:
                 st.rerun()
 
     if not st.session_state.mesa.empty:
-        st.write("---")
-        c1, c2, c3 = st.columns([1, 1.5, 3])
-        
-        with c1:
-            # Lógica corregida: El toggle maestro
-            if st.button("SELECCIONAR TODO"):
-                st.session_state.mesa['Sel'] = True
-                st.rerun()
-            if st.button("DESELECCIONAR"):
-                st.session_state.mesa['Sel'] = False
-                st.rerun()
-
-        with c2:
-            talla_f = st.selectbox("TALLA:", ["Todas"] + sorted(st.session_state.mesa['Talla'].unique().tolist()))
-        
-        with c3:
-            mask = st.session_state.mesa['Sel'] == True
-            if talla_f != "Todas": mask = mask & (st.session_state.mesa['Talla'] == talla_f)
-            
-            b_a, b_b, b_c = st.columns(3)
-            if b_a.button("+ 5 UN."):
-                st.session_state.mesa.loc[mask, 'Cant. a fabricar'] = st.session_state.mesa.loc[mask, 'Cant. a fabricar'].astype(int) + 5
-                st.toast("Actualizado +5", icon="📈")
-                st.rerun()
-            if b_b.button("+ 10 UN."):
-                st.session_state.mesa.loc[mask, 'Cant. a fabricar'] = st.session_state.mesa.loc[mask, 'Cant. a fabricar'].astype(int) + 10
-                st.toast("Actualizado +10", icon="📈")
-                st.rerun()
-            if b_c.button("QUITAR"):
-                st.session_state.mesa = st.session_state.mesa[~mask].reset_index(drop=True)
+        st.write("### Planificación")
+        # Operaciones masivas
+        c_ops, c_val = st.columns([2, 2])
+        with c_ops:
+            op = st.selectbox("Acción masiva (filas marcadas):", ["---", "+5 Unidades", "+10 Unidades", "Eliminar"])
+            if st.button("Ejecutar Acción"):
+                mask = st.session_state.mesa['Sel'] == True
+                if op == "+5 Unidades": st.session_state.mesa.loc[mask, 'Cant. a fabricar'] = st.session_state.mesa.loc[mask, 'Cant. a fabricar'].astype(int) + 5
+                elif op == "+10 Unidades": st.session_state.mesa.loc[mask, 'Cant. a fabricar'] = st.session_state.mesa.loc[mask, 'Cant. a fabricar'].astype(int) + 10
+                elif op == "Eliminar": st.session_state.mesa = st.session_state.mesa[~mask]
+                st.toast(f"Proceso {op} finalizado")
                 st.rerun()
 
-        st.write("---")
-        # Renderizado de filas
-        for idx, row in st.session_state.mesa.iterrows():
-            f1, f2, f3, f4 = st.columns([0.5, 2, 4, 1.5])
-            
-            # Usamos un valor fijo para el key que solo dependa del índice y el EAN
-            is_sel = f1.checkbox(" ", value=row['Sel'], key=f"row_sel_{idx}_{row['Ean']}", label_visibility="collapsed")
-            if is_sel != row['Sel']:
-                st.session_state.mesa.at[idx, 'Sel'] = is_sel
-                st.rerun()
-                
-            f2.write(f"Ref: **{row['Referencia']}**")
-            f3.write(f"{row['Nombre']} — {row['Color']} / {row['Talla']}")
-            
-            v_input = f4.number_input("C", min_value=0, value=int(row['Cant. a fabricar']), key=f"qty_{idx}_{row['Ean']}", label_visibility="collapsed")
-            if v_input != row['Cant. a fabricar']:
-                st.session_state.mesa.at[idx, 'Cant. a fabricar'] = v_input
-                st.rerun()
+        # LA TABLA (Data Editor)
+        # El data editor permite marcar todas las filas con un solo click en el encabezado
+        df_mesa_edit = st.data_editor(
+            st.session_state.mesa,
+            column_order=['Sel', 'Referencia', 'Nombre', 'Color', 'Talla', 'Cant. a fabricar'],
+            column_config={
+                "Sel": st.column_config.CheckboxColumn("Selección", default=False),
+                "Cant. a fabricar": st.column_config.NumberColumn("Cantidad", min_value=0, step=1),
+                "Referencia": st.column_config.Column(disabled=True),
+                "Nombre": st.column_config.Column(disabled=True),
+                "Color": st.column_config.Column(disabled=True),
+                "Talla": st.column_config.Column(disabled=True),
+            },
+            hide_index=True,
+            use_container_width=True,
+            key="editor_mesa"
+        )
+        
+        # Sincronizamos cambios del editor al estado
+        if not df_mesa_edit.equals(st.session_state.mesa):
+            st.session_state.mesa = df_mesa_edit
+            st.rerun()
 
 # --- TAB 2: ASIGNACIÓN ---
 with t2:
@@ -150,25 +120,25 @@ with t2:
         df_comp['Display'] = df_comp['Referencia'] + " | " + df_comp['Nombre']
         col_a, col_b = st.columns([3, 1])
         with col_a: 
-            comp = st.selectbox("COMPONENTE:", df_comp['Display'].unique())
-            r_c = df_comp[df_comp['Display'] == comp].iloc[0]
+            comp_sel = st.selectbox("MATERIAL:", df_comp['Display'].unique())
+            r_c = df_comp[df_comp['Display'] == comp_sel].iloc[0]
         with col_b: 
             cons = st.number_input("CONSUMO:", min_value=0.0, value=1.0, format="%.3f")
         
         st.write("---")
         g1, g2, g3 = st.columns(3)
-        with g1: f_ref = st.multiselect("REF PRENDA:", sorted(st.session_state.mesa['Referencia'].unique()))
+        with g1: f_ref = st.multiselect("FILTRAR REF:", sorted(st.session_state.mesa['Referencia'].unique()))
         with g2:
             d_aux = st.session_state.mesa if not f_ref else st.session_state.mesa[st.session_state.mesa['Referencia'].isin(f_ref)]
-            f_col = st.multiselect("COLOR:", sorted(d_aux['Color'].unique()))
+            f_col = st.multiselect("FILTRAR COLOR:", sorted(d_aux['Color'].unique()))
         with g3:
             d_aux2 = d_aux if not f_col else d_aux[d_aux['Color'].isin(f_col)]
-            f_tal = st.multiselect("TALLA:", sorted(d_aux2['Talla'].unique()))
+            f_tal = st.multiselect("FILTRAR TALLA:", sorted(d_aux2['Talla'].unique()))
         
         target = d_aux2 if not f_tal else d_aux2[d_aux2['Talla'].isin(f_tal)]
         st.info(f"Variantes destino: {len(target)}")
         
-        if st.button("EJECUTAR ASIGNACIÓN", use_container_width=True):
+        if st.button("INYECTAR MATERIAL", use_container_width=True):
             t_id = datetime.now().strftime('%H%M%S')
             nuevas = pd.DataFrame({
                 'Nombre de producto': target['Nombre'], 'Cod Barras Variante': target['Ean'],
@@ -180,38 +150,36 @@ with t2:
             })
             st.session_state.bom = pd.concat([st.session_state.bom, nuevas]).drop_duplicates()
             st.session_state.ultima_tanda = t_id
-            st.status("Material asignado con éxito").update(state="complete")
+            with st.status("Asignando...") as s:
+                time.sleep(0.4)
+                s.update(label="Material asignado", state="complete")
             st.rerun()
 
 # --- TAB 3: GEXTIA ---
 with t3:
     if not st.session_state.bom.empty:
         c_h, c_u = st.columns([4, 1])
-        with c_h: st.subheader("ESCANDALLO")
+        with c_h: st.write("### Escandallo Final")
         with c_u:
             if st.session_state.ultima_tanda and st.button("DESHACER"):
                 st.session_state.bom = st.session_state.bom[st.session_state.bom['Tanda'] != st.session_state.ultima_tanda]
                 st.session_state.ultima_tanda = None
-                st.toast("Última acción eliminada")
                 st.rerun()
 
-        df_e = st.data_editor(st.session_state.bom, 
-                              column_order=['Ref Prenda', 'Col Prenda', 'Tal Prenda', 'Nom Comp', 'Cantidad', 'Ud'],
-                              use_container_width=True, hide_index=True)
-        if st.button("GUARDAR EDICIÓN"):
-            st.session_state.bom = df_e
-            st.toast("Cambios guardados", icon="💾")
-            
+        df_bom_edit = st.data_editor(st.session_state.bom, 
+                                     column_order=['Ref Prenda', 'Col Prenda', 'Tal Prenda', 'Nom Comp', 'Cantidad', 'Ud'],
+                                     use_container_width=True, hide_index=True)
+        
         st.write("---")
         out = io.BytesIO()
         with pd.ExcelWriter(out, engine='openpyxl') as w:
-            st.session_state.bom.drop(columns=['Tanda'], errors='ignore').to_excel(w, index=False)
-        st.download_button("DESCARGAR EXCEL", out.getvalue(), "Gextia_BOM.xlsx", use_container_width=True)
+            df_bom_edit.drop(columns=['Tanda'], errors='ignore').to_excel(w, index=False)
+        st.download_button("DESCARGAR GEXTIA EXCEL", out.getvalue(), "Gextia_BOM.xlsx", use_container_width=True)
 
 # --- TAB 4: COMPRAS ---
 with t4:
     if not st.session_state.bom.empty:
-        st.subheader("NECESIDADES DE COMPRA")
+        st.write("### Necesidades Totales")
         calc = st.session_state.bom.copy()
         mesa_v = st.session_state.mesa[['Ean', 'Cant. a fabricar']]
         calc = calc.merge(mesa_v, left_on='Cod Barras Variante', right_on='Ean', how='left')
