@@ -19,7 +19,6 @@ st.markdown("""
     }
     .stTabs [aria-selected="true"] { color: #000 !important; border-bottom: 2px solid #000 !important; }
     
-    /* Botones Estilo Industrial */
     div.stButton > button {
         border-radius: 0px !important; border: 1px solid #000 !important;
         background-color: #FFF !important; color: #000 !important;
@@ -28,8 +27,6 @@ st.markdown("""
     }
     div.stButton > button:hover { background-color: #000 !important; color: #FFF !important; }
     
-    /* Notificaciones sutiles */
-    .stStatusWidget { border-radius: 0px !important; border: 1px solid #E0E0E0 !important; }
     [data-testid="stSidebar"] { background-color: #F9F9F9 !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -96,37 +93,33 @@ with t1:
                 nuevos['Sel'] = False
                 nuevos['Cant. a fabricar'] = 0
                 st.session_state.mesa = pd.concat([st.session_state.mesa, nuevos]).drop_duplicates(subset=['Ean'])
-                with st.status("Procesando...", expanded=False) as s:
-                    time.sleep(0.5)
-                    s.update(label="Mesa actualizada con éxito", state="complete", expanded=False)
+                with st.status("Actualizando mesa...", expanded=False) as s:
+                    time.sleep(0.4)
+                    s.update(label="Mesa de corte lista", state="complete")
                 st.rerun()
 
     if not st.session_state.mesa.empty:
         st.write("---")
         c1, c2, c3 = st.columns([1, 1.5, 3])
-        
         with c1:
             m_sel = st.checkbox("SELECCIONAR TODO", key="master_check")
             if m_sel != st.session_state.get('prev_master', False):
                 st.session_state.mesa['Sel'] = m_sel
                 st.session_state['prev_master'] = m_sel
                 st.rerun()
-
         with c2:
             talla_f = st.selectbox("FILTRAR TALLA:", ["Todas"] + sorted(st.session_state.mesa['Talla'].unique().tolist()))
-        
         with c3:
             mask = st.session_state.mesa['Sel'] == True
             if talla_f != "Todas": mask = mask & (st.session_state.mesa['Talla'] == talla_f)
-            
             b_a, b_b, b_c = st.columns(3)
             if b_a.button("+ 5 UNID."):
                 st.session_state.mesa.loc[mask, 'Cant. a fabricar'] = st.session_state.mesa.loc[mask, 'Cant. a fabricar'].astype(int) + 5
-                st.toast("Cantidades actualizadas", icon="📈")
+                st.toast("Cantidad actualizada", icon="📈")
                 st.rerun()
             if b_b.button("+ 10 UNID."):
                 st.session_state.mesa.loc[mask, 'Cant. a fabricar'] = st.session_state.mesa.loc[mask, 'Cant. a fabricar'].astype(int) + 10
-                st.toast("Cantidades actualizadas", icon="📈")
+                st.toast("Cantidad actualizada", icon="📈")
                 st.rerun()
             if b_c.button("ELIMINAR"):
                 st.session_state.mesa = st.session_state.mesa[~mask].reset_index(drop=True)
@@ -139,10 +132,8 @@ with t1:
             if new_sel != row['Sel']:
                 st.session_state.mesa.at[idx, 'Sel'] = new_sel
                 st.rerun()
-            
             f2.write(f"Ref: **{row['Referencia']}**")
             f3.write(f"{row['Nombre']} — {row['Color']} / Talla {row['Talla']}")
-            
             new_val = f4.number_input("CANT", min_value=0, value=int(row['Cant. a fabricar']), key=f"num_{idx}_{row['Ean']}", label_visibility="collapsed")
             if new_val != row['Cant. a fabricar']:
                 st.session_state.mesa.at[idx, 'Cant. a fabricar'] = new_val
@@ -184,28 +175,26 @@ with t2:
             })
             st.session_state.bom = pd.concat([st.session_state.bom, nuevas]).drop_duplicates()
             st.session_state.ultima_tanda = t_id
-            with st.status("Generando escandallo...") as s:
-                time.sleep(0.6)
-                s.update(label="Material inyectado correctamente", state="complete")
+            with st.status("Ejecutando inyección...") as s:
+                time.sleep(0.5)
+                s.update(label="Material asignado correctamente", state="complete")
             st.rerun()
 
 # --- TAB 3: GEXTIA ---
 with t3:
     if not st.session_state.bom.empty:
-        c_title, c_undo = st.columns([4, 1])
-        with c_title: st.subheader("REVISIÓN DE ESCANDALLO")
-        with c_undo:
-            if st.session_state.ultima_tanda:
-                if st.button("🔄 DESHACER", use_container_width=True):
-                    st.session_state.bom = st.session_state.bom[st.session_state.bom['Tanda'] != st.session_state.ultima_tanda]
-                    st.session_state.ultima_tanda = None
-                    st.toast("Última acción revertida")
-                    st.rerun()
+        c_head, c_und = st.columns([4, 1])
+        with c_head: st.subheader("REVISIÓN DE ESCANDALLO")
+        with c_und:
+            if st.session_state.ultima_tanda and st.button("🔄 DESHACER"):
+                st.session_state.bom = st.session_state.bom[st.session_state.bom['Tanda'] != st.session_state.ultima_tanda]
+                st.session_state.ultima_tanda = None
+                st.toast("Acción revertida")
+                st.rerun()
 
         df_e = st.data_editor(st.session_state.bom, 
                               column_order=['Ref Prenda', 'Col Prenda', 'Tal Prenda', 'Nom Comp', 'Cantidad', 'Ud'],
                               use_container_width=True, hide_index=True)
-        
         if st.button("GUARDAR CAMBIOS MANUALES"):
             st.session_state.bom = df_e
             st.toast("Cambios guardados", icon="💾")
@@ -224,7 +213,6 @@ with t4:
         mesa_v = st.session_state.mesa[['Ean', 'Cant. a fabricar']]
         calc = calc.merge(mesa_v, left_on='Cod Barras Variante', right_on='Ean', how='left')
         calc['Total'] = calc['Cantidad'].astype(float) * calc['Cant. a fabricar'].astype(float)
-        
         res = calc.groupby(['Ref Comp', 'Nom Comp', 'Ud'])['Total'].sum().reset_index()
         st.dataframe(res[res['Total'] > 0], use_container_width=True, hide_index=True)
-                
+        
