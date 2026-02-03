@@ -5,91 +5,32 @@ import os
 import pickle
 from datetime import datetime
 
-# --- 1. CONFIGURACIÓN Y ESTÉTICA "ZARA" ---
+# --- 1. CONFIGURACIÓN Y ESTÉTICA PROFESIONAL ---
 st.set_page_config(page_title="GEXTIA FACTORY PRO", layout="wide")
 
-# CSS para forzar el look profesional: fondos blancos, botones negros y fuentes limpias
+# CSS "Estilo Zara" (No toca la lógica de Python)
 st.markdown("""
     <style>
-    /* Fondo principal y fuentes */
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #FFFFFF !important;
-        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-    }
-
-    /* Ocultar elementos innecesarios de Streamlit */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-
-    /* Pestañas (Tabs) minimalistas */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 20px;
-        background-color: #FFFFFF;
-        border-bottom: 1px solid #E0E0E0;
-    }
+    html, body, [data-testid="stAppViewContainer"] { background-color: #FFFFFF !important; }
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; border-bottom: 1px solid #E0E0E0; }
     .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: transparent !important;
-        border: none !important;
-        color: #999999 !important;
-        font-weight: 300 !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+        height: 45px; color: #999 !important; font-weight: 300 !important;
+        text-transform: uppercase; letter-spacing: 1px;
     }
-    .stTabs [aria-selected="true"] {
-        color: #000000 !important;
-        border-bottom: 2px solid #000000 !important;
-    }
-
-    /* Botones Estilo Boutique (Negro/Blanco) */
+    .stTabs [aria-selected="true"] { color: #000 !important; border-bottom: 2px solid #000 !important; }
     div.stButton > button {
-        border-radius: 0px !important;
-        border: 1px solid #000000 !important;
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
-        font-weight: 400;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-size: 11px !important;
-        padding: 10px 25px !important;
-        transition: 0.4s;
+        border-radius: 0px !important; border: 1px solid #000 !important;
+        background-color: #FFF !important; color: #000 !important;
+        text-transform: uppercase; letter-spacing: 1px; font-size: 11px !important;
     }
-    div.stButton > button:hover {
-        background-color: #000000 !important;
-        color: #FFFFFF !important;
-    }
-
-    /* Descargas (Botón oscuro fijo) */
-    div.stDownloadButton > button {
-        background-color: #000000 !important;
-        color: #FFFFFF !important;
-        border-radius: 0px !important;
-        border: none !important;
-        text-transform: uppercase;
-        font-size: 11px !important;
-        letter-spacing: 1px;
-    }
-
-    /* Sidebar gris neutro */
-    [data-testid="stSidebar"] {
-        background-color: #F9F9F9 !important;
-        border-right: 1px solid #EDEDED;
-    }
-    
-    /* Inputs y Tablas */
-    .stDataFrame, .stDataEditor {
-        border: 1px solid #F0F0F0 !important;
-    }
+    div.stButton > button:hover { background-color: #000 !important; color: #FFF !important; }
+    [data-testid="stSidebar"] { background-color: #F9F9F9 !important; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 2. FUNCIONES DE PERSISTENCIA ---
 def guardar_progreso():
-    datos = {
-        'mesa': st.session_state.mesa,
-        'bom': st.session_state.bom,
-        'ultima_tanda': st.session_state.ultima_tanda
-    }
+    datos = {'mesa': st.session_state.mesa, 'bom': st.session_state.bom, 'ultima_tanda': st.session_state.ultima_tanda}
     return pickle.dumps(datos)
 
 def cargar_progreso(archivo_bytes):
@@ -118,81 +59,81 @@ if 'ultima_tanda' not in st.session_state: st.session_state.ultima_tanda = None
 
 # --- 4. PANEL LATERAL ---
 with st.sidebar:
-    st.markdown("<h2 style='font-weight: 200; letter-spacing: 2px;'>GEXTIA PRO</h2>", unsafe_allow_html=True)
-    st.write("---")
+    st.markdown("<h2 style='font-weight: 200;'>GESTIÓN</h2>", unsafe_allow_html=True)
     if not st.session_state.mesa.empty or not st.session_state.bom.empty:
-        st.download_button("Exportar Sesión", data=guardar_progreso(), file_name=f"Backup_{datetime.now().strftime('%H%M')}.pkt")
+        st.download_button("EXPORTAR SESIÓN", data=guardar_progreso(), file_name=f"Sesion_{datetime.now().strftime('%H%M')}.pkt")
     
-    st.write(" ")
-    archivo_subido = st.file_uploader("Restaurar avance", type=["pkt"])
+    st.write("---")
+    archivo_subido = st.file_uploader("RESTAURAR AVANCE", type=["pkt"])
     if archivo_subido:
-        if st.button("Confirmar Carga"):
+        if st.button("CONFIRMAR CARGA"):
             cargar_progreso(archivo_subido.read())
             st.rerun()
-
-    st.write("---")
-    if st.button("Reset Global"):
+    
+    if st.button("RESET GLOBAL"):
         st.session_state.mesa = pd.DataFrame()
         st.session_state.bom = pd.DataFrame()
         st.rerun()
 
 # --- 5. TABS ---
-t1, t2, t3, t4 = st.tabs(["Mesa de Corte", "Asignación", "Exportación Gextia", "Lista Compra"])
+t1, t2, t3, t4 = st.tabs(["MESA DE CORTE", "ASIGNACIÓN", "GEXTIA IMPORT", "LISTA COMPRA"])
 
-# --- TAB 1: MESA DE CORTE ---
+# --- TAB 1: MESA DE CORTE (Lógica Restaurada) ---
 with t1:
-    st.markdown("<h3 style='font-weight: 300;'>Planificación</h3>", unsafe_allow_html=True)
+    st.subheader("Planificación de Producción")
     if df_prendas is not None:
-        c_sel, c_btn = st.columns([4, 1])
-        with c_sel: seleccion_refs = st.multiselect("Referencias:", sorted(df_prendas['Referencia'].unique()))
+        c_sel, c_btn = st.columns([3, 1])
+        with c_sel: seleccion_refs = st.multiselect("Añadir Referencias:", sorted(df_prendas['Referencia'].unique()))
         with c_btn:
-            st.write(" ")
-            if st.button("Cargar en Mesa"):
+            if st.button("➕ CARGAR", type="primary"):
                 nuevos = df_prendas[df_prendas['Referencia'].isin(seleccion_refs)].copy()
                 nuevos['Sel'], nuevos['Cant. a fabricar'] = False, 0
                 st.session_state.mesa = pd.concat([st.session_state.mesa, nuevos]).drop_duplicates(subset=['Ean'])
                 st.rerun()
 
     if not st.session_state.mesa.empty:
-        st.write("---")
+        st.divider()
         c_all, c_talla, c_ops = st.columns([1, 1.5, 3])
         with c_all:
-            if st.checkbox("Todo") != st.session_state.get('p_sel', False):
-                st.session_state.mesa['Sel'] = not st.session_state.get('p_sel', False)
-                st.session_state['p_sel'] = not st.session_state.get('p_sel', False)
+            # Lógica original de seleccionar todas
+            if st.checkbox("Seleccionar todas", key="master_sel") != st.session_state.get('p_sel', False):
+                st.session_state.mesa['Sel'] = st.session_state.master_sel
+                st.session_state['p_sel'] = st.session_state.master_sel
                 st.rerun()
         with c_talla:
-            t_target = st.selectbox("Talla:", ["Todas"] + sorted(st.session_state.mesa['Talla'].unique().tolist()))
+            t_target = st.selectbox("🎯 Filtrar Talla:", ["Todas"] + sorted(st.session_state.mesa['Talla'].unique().tolist()))
         with c_ops:
             mask = st.session_state.mesa['Sel'] == True
             if t_target != "Todas": mask = mask & (st.session_state.mesa['Talla'] == t_target)
             b2, b3, b4 = st.columns(3)
-            if b2.button("+5 UN"): st.session_state.mesa.loc[mask, 'Cant. a fabricar'] += 5; st.rerun()
-            if b3.button("+10 UN"): st.session_state.mesa.loc[mask, 'Cant. a fabricar'] += 10; st.rerun()
-            if b4.button("Quitar"): st.session_state.mesa = st.session_state.mesa[~mask].reset_index(drop=True); st.rerun()
+            # Lógica original de añadir unidades
+            if b2.button("➕5 Sel."): st.session_state.mesa.loc[mask, 'Cant. a fabricar'] += 5; st.rerun()
+            if b3.button("➕10 Sel."): st.session_state.mesa.loc[mask, 'Cant. a fabricar'] += 10; st.rerun()
+            if b4.button("🗑️ Quitar Sel."): st.session_state.mesa = st.session_state.mesa[~mask].reset_index(drop=True); st.rerun()
 
+        st.divider()
         for idx, row in st.session_state.mesa.iterrows():
             f1, f2, f3, f4 = st.columns([0.5, 2, 4, 1.5])
-            if f1.checkbox(" ", value=row['Sel'], key=f"ch_{idx}", label_visibility="collapsed") != row['Sel']:
+            if f1.checkbox(" ", value=row['Sel'], key=f"ch_{idx}_{row['Ean']}_v{st.session_state.get('p_sel', False)}", label_visibility="collapsed") != row['Sel']:
                 st.session_state.mesa.at[idx, 'Sel'] = not row['Sel']; st.rerun()
-            f2.write(f"Ref. `{row['Referencia']}`")
-            f3.write(f"**{row['Nombre']}** — {row['Color']} ({row['Talla']})")
-            nv = f4.number_input("n", min_value=0, value=int(row['Cant. a fabricar']), key=f"v_{idx}", label_visibility="collapsed")
+            f2.write(f"`{row['Referencia']}`")
+            f3.write(f"**{row['Nombre']}** ({row['Color']} / {row['Talla']})")
+            nv = f4.number_input("n", min_value=0, value=int(row['Cant. a fabricar']), key=f"v_{idx}_{row['Ean']}_c{row['Cant. a fabricar']}", label_visibility="collapsed", step=1)
             if nv != row['Cant. a fabricar']: st.session_state.mesa.at[idx, 'Cant. a fabricar'] = nv; st.rerun()
 
-# --- TAB 2: ASIGNACIÓN ---
+# --- TAB 2: ASIGNACIÓN (Lógica Original) ---
 with t2:
     if not st.session_state.mesa.empty:
-        st.markdown("<h3 style='font-weight: 300;'>Asignación Material</h3>", unsafe_allow_html=True)
-        df_comp['Display'] = df_comp.apply(lambda r: f"{r.get('Referencia','')} | {r.get('Nombre','')}", axis=1)
+        st.subheader("🧬 Asignación de Materiales")
+        df_comp['Display'] = df_comp.apply(lambda r: f"{r.get('Referencia','')} - {r.get('Nombre','')} | {r.get('Color','')}", axis=1)
         c_m, c_c = st.columns([3, 1])
         with c_m: 
-            comp_sel = st.selectbox("Componente:", df_comp['Display'].unique())
+            comp_sel = st.selectbox("Material:", df_comp['Display'].unique())
             row_c = df_comp[df_comp['Display'] == comp_sel].iloc[0]
         with c_c: 
-            cons_inj = st.number_input("Consumo Unitario:", min_value=0.0, value=1.0, format="%.3f")
+            cons_inj = st.number_input("Consumo Unit.:", min_value=0.0, value=1.0, format="%.3f")
         
-        st.write("---")
+        st.write("### 🎯 Definir Destinos")
         f1, f2, f3 = st.columns(3)
         with f1: r_ts = st.multiselect("Filtrar Ref:", sorted(st.session_state.mesa['Referencia'].unique()))
         with f2:
@@ -203,11 +144,11 @@ with t2:
             t_ts = st.multiselect("Filtrar Talla:", sorted(d_t2['Talla'].unique()))
             
         final_df = d_t2 if not t_ts else d_t2[d_t2['Talla'].isin(t_ts)]
-        st.info(f"Seleccionadas: {len(final_df)} variantes.")
+        st.info(f"Se inyectará en **{len(final_df)}** variantes.")
         
-        col_b1, col_b2 = st.columns([4, 1])
+        col_b1, col_b2 = st.columns([3, 1])
         with col_b1:
-            if st.button("Aplicar Material", use_container_width=True):
+            if st.button("✂️ EJECUTAR INYECCIÓN Y CORTE", use_container_width=True):
                 tanda_id = datetime.now().strftime('%H%M%S')
                 nuevas = pd.DataFrame({
                     'Nombre de producto': final_df['Nombre'], 'Cod Barras Variante': final_df['Ean'],
@@ -219,58 +160,48 @@ with t2:
                 })
                 st.session_state.bom = pd.concat([st.session_state.bom, nuevas]).drop_duplicates()
                 st.session_state.ultima_tanda = tanda_id
-                st.rerun()
+                st.success("✂️ ¡Material asignado!"); st.rerun()
         with col_b2:
-            if st.session_state.ultima_tanda and st.button("Deshacer"):
+            if st.session_state.ultima_tanda and st.button("🔄 DESHACER"):
                 st.session_state.bom = st.session_state.bom[st.session_state.bom['Tanda'] != st.session_state.ultima_tanda]
                 st.session_state.ultima_tanda = None
                 st.rerun()
 
-# --- TAB 3: GEXTIA (EDICIÓN Y DESCARGA) ---
+# --- TAB 3: GEXTIA (EDICIÓN SEGURA) ---
 with t3:
     if not st.session_state.bom.empty:
-        st.markdown("<h3 style='font-weight: 300;'>Escandallo de Fabricación</h3>", unsafe_allow_html=True)
+        st.subheader("📋 Auditoría de Escandallo")
         df_edit = st.data_editor(
             st.session_state.bom,
             column_order=['Ref Prenda', 'Col Prenda', 'Tal Prenda', 'Nom Comp', 'Col Comp', 'Cantidad', 'Ud'],
             column_config={
-                "Cantidad": st.column_config.NumberColumn("Consumo", format="%.3f"),
+                "Cantidad": st.column_config.NumberColumn("Consumo Unit.", format="%.3f"),
                 "Ref Prenda": st.column_config.Column(disabled=True),
-                "Col Prenda": st.column_config.Column(disabled=True),
-                "Tal Prenda": st.column_config.Column(disabled=True),
-                "Nom Comp": st.column_config.Column(disabled=True),
-                "Col Comp": st.column_config.Column(disabled=True),
-                "Ud": st.column_config.Column(disabled=True),
+                "Nom Comp": st.column_config.Column(disabled=True)
             },
-            use_container_width=True, hide_index=True
+            use_container_width=True, hide_index=False
         )
-        
-        if st.button("Guardar Cambios"):
+        if st.button("💾 GUARDAR CAMBIOS"):
             for idx in df_edit.index:
                 st.session_state.bom.at[idx, 'Cantidad'] = df_edit.loc[idx, 'Cantidad']
-            st.success("Guardado")
+            st.success("✅ Cambios guardados."); st.rerun()
 
-        st.write(" ")
+        st.divider()
         cols_g = ['Nombre de producto', 'Cod Barras Variante', 'Cantidad producto final', 
                   'Tipo de lista de material', 'Subcontratista', 'EAN Componente', 'Cantidad', 'Ud']
         out = io.BytesIO()
         with pd.ExcelWriter(out, engine='openpyxl') as w:
             st.session_state.bom[cols_g].to_excel(w, index=False)
-        st.download_button("Descargar Fichero Gextia", out.getvalue(), "Gextia_BOM.xlsx")
+        st.download_button("📥 DESCARGAR EXCEL GEXTIA", out.getvalue(), "Gextia_BOM.xlsx")
 
 # --- TAB 4: COMPRAS ---
 with t4:
     if not st.session_state.bom.empty:
-        st.markdown("<h3 style='font-weight: 300;'>Requerimientos de Compra</h3>", unsafe_allow_html=True)
+        st.subheader("📊 Necesidades Totales")
         df_calc = st.session_state.bom.copy()
         df_m = st.session_state.mesa[['Ean', 'Cant. a fabricar']]
         df_calc = df_calc.merge(df_m, left_on='Cod Barras Variante', right_on='Ean', how='left')
         df_calc['Total Compra'] = df_calc['Cantidad'].astype(float) * df_calc['Cant. a fabricar'].astype(float)
-        
         res = df_calc.groupby(['Ref Comp', 'Nom Comp', 'Col Comp', 'Ud'])['Total Compra'].sum().reset_index()
         st.dataframe(res[res['Total Compra'] > 0], use_container_width=True, hide_index=True)
-        
-        out_c = io.BytesIO()
-        with pd.ExcelWriter(out_c, engine='openpyxl') as w: res.to_excel(w, index=False)
-        st.download_button("Descargar Lista de Compra", out_c.getvalue(), "Compra_Materiales.xlsx")
-        
+            
