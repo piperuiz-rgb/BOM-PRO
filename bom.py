@@ -6,7 +6,7 @@ import pickle
 import time
 from datetime import datetime
 
-# --- 1. CONFIGURACIÓN Y ESTÉTICA "ZARA" ---
+# --- 1. CONFIGURACIÓN Y ESTÉTICA PROFESIONAL ---
 st.set_page_config(page_title="GEXTIA FACTORY PRO", layout="wide")
 
 st.markdown("""
@@ -27,7 +27,7 @@ st.markdown("""
     }
     div.stButton > button:hover { background-color: #000 !important; color: #FFF !important; }
     
-    [data-testid="stSidebar"] { background-color: #F9F9F9 !important; }
+    [data-testid="stSidebar"] { background-color: #F9F9F9 !important; border-right: 1px solid #EDEDED; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -63,16 +63,18 @@ df_comp = load_data('componentes.xlsx')
 with st.sidebar:
     st.markdown("<h2 style='font-weight: 200; letter-spacing: 2px;'>GEXTIA PRO</h2>", unsafe_allow_html=True)
     if not st.session_state.mesa.empty:
-        st.download_button("EXPORTAR BACKUP", data=guardar_progreso(), file_name=f"Sesion_{datetime.now().strftime('%H%M')}.pkt")
+        total_unidades = st.session_state.mesa['Cant. a fabricar'].astype(int).sum()
+        st.metric("TOTAL PLANIFICADO", f"{total_unidades} pzs")
+        st.download_button("EXPORTAR BACKUP", data=guardar_progreso(), file_name=f"Sesion_{datetime.now().strftime('%H%M')}.pkt", use_container_width=True)
     
     st.write("---")
     archivo = st.file_uploader("CARGAR AVANCE", type=["pkt"])
-    if archivo and st.button("RESTAURAR"):
+    if archivo and st.button("RESTAURAR", use_container_width=True):
         cargar_progreso(archivo.read())
         st.toast("SESIÓN RESTAURADA", icon="📋")
         st.rerun()
     
-    if st.button("LIMPIAR SESIÓN"):
+    if st.button("LIMPIAR SESIÓN", use_container_width=True):
         st.session_state.mesa = pd.DataFrame()
         st.session_state.bom = pd.DataFrame()
         st.rerun()
@@ -88,7 +90,7 @@ with t1:
             refs = st.multiselect("SELECCIONAR REFERENCIAS:", sorted(df_prendas['Referencia'].unique()))
         with c_btn:
             st.write(" ")
-            if st.button("AÑADIR A MESA"):
+            if st.button("AÑADIR A MESA", use_container_width=True):
                 nuevos = df_prendas[df_prendas['Referencia'].isin(refs)].copy()
                 nuevos['Sel'] = False
                 nuevos['Cant. a fabricar'] = 0
@@ -186,7 +188,7 @@ with t3:
         c_head, c_und = st.columns([4, 1])
         with c_head: st.subheader("REVISIÓN DE ESCANDALLO")
         with c_und:
-            if st.session_state.ultima_tanda and st.button("🔄 DESHACER"):
+            if st.session_state.ultima_tanda and st.button("🔄 DESHACER", use_container_width=True):
                 st.session_state.bom = st.session_state.bom[st.session_state.bom['Tanda'] != st.session_state.ultima_tanda]
                 st.session_state.ultima_tanda = None
                 st.toast("Acción revertida")
@@ -203,7 +205,7 @@ with t3:
         out = io.BytesIO()
         with pd.ExcelWriter(out, engine='openpyxl') as w:
             st.session_state.bom.drop(columns=['Tanda'], errors='ignore').to_excel(w, index=False)
-        st.download_button("DESCARGAR EXCEL GEXTIA", out.getvalue(), "Gextia_BOM.xlsx")
+        st.download_button("DESCARGAR EXCEL GEXTIA", out.getvalue(), "Gextia_BOM.xlsx", use_container_width=True)
 
 # --- TAB 4: COMPRAS ---
 with t4:
