@@ -217,4 +217,3 @@ with t4:
         calc['Total'] = calc['Cantidad'].astype(float) * calc['Cant. a fabricar'].astype(float)
         res = calc.groupby(['Ref Comp', 'Nom Comp', 'Ud'])['Total'].sum().reset_index()
         st.dataframe(res[res['Total'] > 0], use_container_width=True, hide_index=True)
-        
