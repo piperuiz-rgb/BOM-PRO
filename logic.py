@@ -28,14 +28,13 @@ def ui_tab_mesa_de_corte(st):
 
     st.divider()
 
-    # Seleccionar todos, filtro por talla, suma/resta masiva
     st.markdown("### Edición masiva")
-    col_sel, col_talla, col_step = st.columns([2, 2, 1])
+    col_sel, col_talla = st.columns([2, 2])
     seleccion_todos = col_sel.checkbox("Seleccionar todos")
     tallas_disponibles = sorted(mesa['Talla'].unique())
     talla_filtro = col_talla.selectbox("Filtrar por talla:", ["Todas"] + tallas_disponibles)
-    step = col_step.selectbox("Cantidad a modificar", [1, 5, 10])
 
+    # Obtener índices seleccionados
     if seleccion_todos:
         seleccionadas = mesa.index
     elif talla_filtro != "Todas":
@@ -43,47 +42,55 @@ def ui_tab_mesa_de_corte(st):
     else:
         seleccionadas = []
 
-    col_sum, col_rest = st.columns(2)
-    if col_sum.button(f"➕ Sumar {step} a seleccionados"):
-        mesa.loc[seleccionadas, 'Cant. a fabricar'] += step
+    cols_mass = st.columns(4)
+    if cols_mass[0].button("➕ Sumar 5"):
+        mesa.loc[seleccionadas, 'Cant. a fabricar'] += 5
+    if cols_mass[1].button("➕ Sumar 10"):
+        mesa.loc[seleccionadas, 'Cant. a fabricar'] += 10
+    if cols_mass[2].button("➖ Restar 5"):
+        mesa.loc[seleccionadas, 'Cant. a fabricar'] -= 5
         mesa.loc[mesa['Cant. a fabricar'] < 0, 'Cant. a fabricar'] = 0
-        st.session_state['mesa'] = mesa
-    if col_rest.button(f"➖ Restar {step} a seleccionados"):
-        mesa.loc[seleccionadas, 'Cant. a fabricar'] -= step
+    if cols_mass[3].button("➖ Restar 10"):
+        mesa.loc[seleccionadas, 'Cant. a fabricar'] -= 10
         mesa.loc[mesa['Cant. a fabricar'] < 0, 'Cant. a fabricar'] = 0
-        st.session_state['mesa'] = mesa
+    st.session_state['mesa'] = mesa
 
     st.write("### Modificar cantidades por variante:")
-
     for idx, row in mesa.iterrows():
-        c1, c2, c3, c4 = st.columns([1.3, 2, 1, 2])
+        c1, c2, c3, c4, c5, c6 = st.columns([1.3, 2, 1, 1, 1, 1])
         c1.markdown(f"**Ref:** {row['Referencia']}")
-        c2.write(
-            f"{row['Nombre']} ({row['Color']}, Talla {row['Talla']})\nEAN: {row[EAN_COL]}"
-        )
-        menos = c3.button("➖", key=f"menos_{idx}")
-        mas = c3.button("➕", key=f"mas_{idx}")
+        c2.write(f"{row['Nombre']} ({row['Color']}, Talla {row['Talla']})\nEAN: {row[EAN_COL]}")
         unidades = int(row['Cant. a fabricar'])
-        nuevo_valor = c4.number_input(
-            "Unidades", min_value=0, value=unidades,
-            key=f"input_{idx}", step=1, label_visibility="collapsed"
-        )
-        if menos and unidades > 0:
-            mesa.at[idx, 'Cant. a fabricar'] = unidades - 1
+        if c3.button(f"+5", key=f"plus5_{idx}"):
+            mesa.at[idx, 'Cant. a fabricar'] = unidades + 5
             st.session_state['mesa'] = mesa
-        if mas:
-            mesa.at[idx, 'Cant. a fabricar'] = unidades + 1
+        if c4.button(f"+10", key=f"plus10_{idx}"):
+            mesa.at[idx, 'Cant. a fabricar'] = unidades + 10
             st.session_state['mesa'] = mesa
-        if nuevo_valor != unidades:
-            mesa.at[idx, 'Cant. a fabricar'] = nuevo_valor
+        if c5.button(f"-5", key=f"minus5_{idx}"):
+            mesa.at[idx, 'Cant. a fabricar'] = max(0, unidades - 5)
             st.session_state['mesa'] = mesa
+        if c6.button(f"-10", key=f"minus10_{idx}"):
+            mesa.at[idx, 'Cant. a fabricar'] = max(0, unidades - 10)
+            st.session_state['mesa'] = mesa
+        st.write(f"Cantidad actual: {unidades}")
 
     st.session_state['mesa'] = mesa.reset_index(drop=True)
 
+    # Selección de variantes para asignación de componentes
+    st.divider()
+    st.markdown("### Selecciona variantes para mesa de asignación de componentes")
+    seleccion_asignacion = st.multiselect(
+        "Elige variantes (EAN) para asignar componentes:",
+        options=mesa[EAN_COL].tolist(),
+        default=[]
+    )
+    if st.button("➡️ Pasar a mesa de asignación de componentes"):
+        st.session_state['mesa_asignacion'] = mesa[mesa[EAN_COL].isin(seleccion_asignacion)].copy()
+        st.success(f"¡{len(seleccion_asignacion)} variantes transferidas a la mesa de asignación de componentes!")
+
 def calcular_lista_compra(bom, mesa, df_comp):
-    # Aquí assumes que el BOM conecta prendas por EAN (o por Referencia, Talla, Color)
     df_m = mesa[['Referencia', 'Color', 'Talla', 'Cant. a fabricar', EAN_COL]]
-    # Ajusta el merge a tus columnas reales en BOM
     df = bom.merge(df_m, left_on=[EAN_COL], right_on=[EAN_COL], how='left')
     df['Total Compra'] = df['Cantidad'].astype(float) * df['Cant. a fabricar'].astype(float)
     df = df.merge(
@@ -103,28 +110,24 @@ def calcular_lista_compra(bom, mesa, df_comp):
     return df[cols_out], coste_total
 
 def exportar_importador_gextia(mesa, bom):
-    # Exporta usando EAN como identificador de variante
     columnas_gextia = [
-        'Nombre',            # Nombre de producto
-        EAN_COL,             # Cod Barras Variante
-        'Cant. a fabricar',  # Cantidad producto final
-        'Tipo de lista de material',  # Puedes añadir esta columna en el BOM
-        'Subcontratista',             # Puedes añadir esta columna en el BOM
-        'EAN Componente',             # La EAN del componente
-        'Cantidad',                   # Cantidad del componente
-        'Ud'                         # Unidad del componente
+        'Nombre',
+        EAN_COL,
+        'Cant. a fabricar',
+        'Tipo de lista de material',  # Añade en bom si lo necesitas
+        'Subcontratista',
+        'EAN Componente',
+        'Cantidad',
+        'Ud'
     ]
-
     bom_export = bom.copy()
     mesa_export = mesa.copy()
-    # Si alguna columna no existe, se crea vac��a
     for col in columnas_gextia:
         if col not in bom_export.columns:
             bom_export[col] = ''
     for col in ['Nombre', EAN_COL, 'Cant. a fabricar']:
         if col not in mesa_export.columns:
             mesa_export[col] = ''
-    # Ejemplo: unir mesa y bom para el export, ajusta según tu BOM
     export_df = bom_export.copy()
     export_df['Nombre'] = export_df['Nombre'].fillna('')
     export_df[EAN_COL] = export_df[EAN_COL].fillna('')
