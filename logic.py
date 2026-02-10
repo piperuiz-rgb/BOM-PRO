@@ -21,6 +21,7 @@ def ui_tab_mesa_de_corte(st):
                 nuevos['Cant. a fabricar'] = 0
             mesa = pd.concat([mesa, nuevos]).drop_duplicates(subset=[EAN_COL])
             st.session_state['mesa'] = mesa.reset_index(drop=True)
+            mesa = st.session_state['mesa']
 
     if mesa.empty:
         st.info("Añade referencias para empezar la planificación.")
@@ -34,6 +35,7 @@ def ui_tab_mesa_de_corte(st):
     tallas_disponibles = sorted(mesa['Talla'].unique())
     talla_filtro = col_talla.selectbox("Filtrar por talla:", ["Todas"] + tallas_disponibles)
 
+    # Índices seleccionados
     if seleccion_todos:
         seleccionadas = mesa.index
     elif talla_filtro != "Todas":
@@ -43,11 +45,15 @@ def ui_tab_mesa_de_corte(st):
 
     cols_mass = st.columns(2)
     if cols_mass[0].button("➕ Sumar 5"):
-        mesa.loc[seleccionadas, 'Cant. a fabricar'] += 5
-        st.session_state['mesa'] = mesa
+        if len(seleccionadas) > 0:
+            mesa.loc[seleccionadas, 'Cant. a fabricar'] += 5
+            mesa.loc[mesa['Cant. a fabricar'] < 0, 'Cant. a fabricar'] = 0
+            st.session_state['mesa'] = mesa
     if cols_mass[1].button("➕ Sumar 10"):
-        mesa.loc[seleccionadas, 'Cant. a fabricar'] += 10
-        st.session_state['mesa'] = mesa
+        if len(seleccionadas) > 0:
+            mesa.loc[seleccionadas, 'Cant. a fabricar'] += 10
+            mesa.loc[mesa['Cant. a fabricar'] < 0, 'Cant. a fabricar'] = 0
+            st.session_state['mesa'] = mesa
 
     st.write("### Modificar cantidades por variante:")
     for idx, row in mesa.iterrows():
@@ -55,35 +61,42 @@ def ui_tab_mesa_de_corte(st):
         c1.markdown(f"**Ref:** {row['Referencia']}")
         c2.write(f"{row['Nombre']} ({row['Color']}, Talla {row['Talla']})\nEAN: {row[EAN_COL]}")
         unidades = int(row['Cant. a fabricar'])
-        menos = c3.button("➖", key=f"menos_{idx}")
-        mas = c3.button("➕", key=f"mas_{idx}")
+
+        menos = c3.button("➖", key=f"menos_{row[EAN_COL]}")
+        mas = c3.button("➕", key=f"mas_{row[EAN_COL]}")
         nuevo_valor = c4.number_input(
             "Unidades", min_value=0, value=unidades,
-            key=f"input_{idx}", step=1, label_visibility="collapsed"
+            key=f"input_{row[EAN_COL]}", step=1, label_visibility="collapsed"
         )
+
+        flag_modificado = False
         if menos and unidades > 0:
             mesa.at[idx, 'Cant. a fabricar'] = unidades - 1
-            st.session_state['mesa'] = mesa
+            flag_modificado = True
         if mas:
             mesa.at[idx, 'Cant. a fabricar'] = unidades + 1
-            st.session_state['mesa'] = mesa
+            flag_modificado = True
         if nuevo_valor != unidades:
             mesa.at[idx, 'Cant. a fabricar'] = nuevo_valor
+            flag_modificado = True
+
+        if flag_modificado:
             st.session_state['mesa'] = mesa
 
     st.session_state['mesa'] = mesa.reset_index(drop=True)
 
-    # Selección de variantes para asignación de componentes
     st.divider()
-    st.markdown("### Selecciona variantes para mesa de asignación de componentes")
-    seleccion_asignacion = st.multiselect(
-        "Elige variantes (EAN) para asignar componentes:",
-        options=mesa[EAN_COL].tolist(),
-        default=[]
+    st.markdown("### Mesa de asignación de componentes")
+    variantes_asignacion = mesa[mesa['Cant. a fabricar'] > 0].copy()
+    st.write(
+        f"{len(variantes_asignacion)} variantes serán transferidas automáticamente "
+        "a la mesa de asignación de componentes al hacer el siguiente paso:"
     )
     if st.button("➡️ Pasar a mesa de asignación de componentes"):
-        st.session_state['mesa_asignacion'] = mesa[mesa[EAN_COL].isin(seleccion_asignacion)].copy()
-        st.success(f"¡{len(seleccion_asignacion)} variantes transferidas a la mesa de asignación de componentes!")
+        st.session_state['mesa_asignacion'] = variantes_asignacion.copy()
+        st.success(
+            f"¡{len(variantes_asignacion)} variantes transferidas a la mesa de asignación de componentes!"
+        )
 
 def calcular_lista_compra(bom, mesa, df_comp):
     df_m = mesa[['Referencia', 'Color', 'Talla', 'Cant. a fabricar', EAN_COL]]
