@@ -1,0 +1,24 @@
+# Excel y backups generados por usuarios
+*.json
+*.xlsx
+
+# Archivos temporales
+*.pyc
+__pycache__/
+
+# Archivos de usuario
+.DS_Store
+Thumbs.db
+
+# Streamlit cache
+.cache/
+.streamlit/
+
+# Jupyter (por si un día experimentas)
+*.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# Carpeta de assets opcional (si contiene solo recursos grandes)
+assets/
