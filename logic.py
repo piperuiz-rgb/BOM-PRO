@@ -34,7 +34,6 @@ def ui_tab_mesa_de_corte(st):
     tallas_disponibles = sorted(mesa['Talla'].unique())
     talla_filtro = col_talla.selectbox("Filtrar por talla:", ["Todas"] + tallas_disponibles)
 
-    # Obtener índices seleccionados
     if seleccion_todos:
         seleccionadas = mesa.index
     elif talla_filtro != "Todas":
@@ -42,38 +41,35 @@ def ui_tab_mesa_de_corte(st):
     else:
         seleccionadas = []
 
-    cols_mass = st.columns(4)
+    cols_mass = st.columns(2)
     if cols_mass[0].button("➕ Sumar 5"):
         mesa.loc[seleccionadas, 'Cant. a fabricar'] += 5
+        st.session_state['mesa'] = mesa
     if cols_mass[1].button("➕ Sumar 10"):
         mesa.loc[seleccionadas, 'Cant. a fabricar'] += 10
-    if cols_mass[2].button("➖ Restar 5"):
-        mesa.loc[seleccionadas, 'Cant. a fabricar'] -= 5
-        mesa.loc[mesa['Cant. a fabricar'] < 0, 'Cant. a fabricar'] = 0
-    if cols_mass[3].button("➖ Restar 10"):
-        mesa.loc[seleccionadas, 'Cant. a fabricar'] -= 10
-        mesa.loc[mesa['Cant. a fabricar'] < 0, 'Cant. a fabricar'] = 0
-    st.session_state['mesa'] = mesa
+        st.session_state['mesa'] = mesa
 
     st.write("### Modificar cantidades por variante:")
     for idx, row in mesa.iterrows():
-        c1, c2, c3, c4, c5, c6 = st.columns([1.3, 2, 1, 1, 1, 1])
+        c1, c2, c3, c4 = st.columns([1.3, 2, 1, 2])
         c1.markdown(f"**Ref:** {row['Referencia']}")
         c2.write(f"{row['Nombre']} ({row['Color']}, Talla {row['Talla']})\nEAN: {row[EAN_COL]}")
         unidades = int(row['Cant. a fabricar'])
-        if c3.button(f"+5", key=f"plus5_{idx}"):
-            mesa.at[idx, 'Cant. a fabricar'] = unidades + 5
+        menos = c3.button("➖", key=f"menos_{idx}")
+        mas = c3.button("➕", key=f"mas_{idx}")
+        nuevo_valor = c4.number_input(
+            "Unidades", min_value=0, value=unidades,
+            key=f"input_{idx}", step=1, label_visibility="collapsed"
+        )
+        if menos and unidades > 0:
+            mesa.at[idx, 'Cant. a fabricar'] = unidades - 1
             st.session_state['mesa'] = mesa
-        if c4.button(f"+10", key=f"plus10_{idx}"):
-            mesa.at[idx, 'Cant. a fabricar'] = unidades + 10
+        if mas:
+            mesa.at[idx, 'Cant. a fabricar'] = unidades + 1
             st.session_state['mesa'] = mesa
-        if c5.button(f"-5", key=f"minus5_{idx}"):
-            mesa.at[idx, 'Cant. a fabricar'] = max(0, unidades - 5)
+        if nuevo_valor != unidades:
+            mesa.at[idx, 'Cant. a fabricar'] = nuevo_valor
             st.session_state['mesa'] = mesa
-        if c6.button(f"-10", key=f"minus10_{idx}"):
-            mesa.at[idx, 'Cant. a fabricar'] = max(0, unidades - 10)
-            st.session_state['mesa'] = mesa
-        st.write(f"Cantidad actual: {unidades}")
 
     st.session_state['mesa'] = mesa.reset_index(drop=True)
 
